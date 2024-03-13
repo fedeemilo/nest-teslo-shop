@@ -10,6 +10,8 @@
 
 3. Clonar el archivo __.env.template__ y renombrarlo a __.env__
 
+```cp .env.template .env```
+
 4. Cambiar las variables de entorno segun requerido
 
 5. Levantar la base de datos
