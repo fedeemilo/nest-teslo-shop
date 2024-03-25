@@ -61,7 +61,11 @@ export class Product {
     @BeforeInsert()
     checkSlugInsert() {
         if (!this.slug) {
-            this.slug = this.title
+            if (this.title) {
+                this.slug = this.title
+            } else {
+                throw new Error('Title is undefined')
+            }
         }
 
         this.slug = this.slug

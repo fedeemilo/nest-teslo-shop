@@ -21,7 +21,7 @@ export class ProductsService {
         @InjectRepository(Product)
         private readonly productRepository: Repository<Product>,
 
-        @InjectRepository(Product)
+        @InjectRepository(ProductImage)
         private readonly productImageRepository: Repository<ProductImage>
     ) {}
 
@@ -31,10 +31,9 @@ export class ProductsService {
 
             const product = this.productRepository.create({
                 ...productDetails,
-                images: images.map(image => {
-                    console.log({ image })
-                    return this.productImageRepository.create({ url: image })
-                })
+                images: images.map(image =>
+                    this.productImageRepository.create({ url: image })
+                )
             })
 
             await this.productRepository.save(product)
@@ -45,13 +44,21 @@ export class ProductsService {
         }
     }
 
-    findAll(paginationDto: PaginationDto) {
+    async findAll(paginationDto: PaginationDto) {
         const { limit = 10, offset = 0 } = paginationDto
 
-        return this.productRepository.find({
+        const products = await this.productRepository.find({
             take: limit,
-            skip: offset
+            skip: offset,
+            relations: {
+                images: true
+            }
         })
+
+        return products.map(({ images, ...rest }) => ({
+            ...rest,
+            images: images.map(image => image.url)
+        }))
     }
 
     async findOne(term: string) {
@@ -60,13 +67,15 @@ export class ProductsService {
         if (isUUID(term)) {
             product = await this.productRepository.findOneBy({ id: term })
         } else {
-            const queryBuilder = this.productRepository.createQueryBuilder()
+            const queryBuilder =
+                this.productRepository.createQueryBuilder('prod')
 
             product = await queryBuilder
                 .where('UPPER(title) =:title or slug =:slug', {
                     title: term.toUpperCase(),
                     slug: term.toLowerCase()
                 })
+                .leftJoinAndSelect('prod.images', 'prodImages')
                 .getOne()
         }
 
@@ -74,6 +83,15 @@ export class ProductsService {
             throw new NotFoundException(`Product with term ${term} not found`)
 
         return product
+    }
+
+    async findOnePlain(term: string) {
+        const { images = [], ...rest } = await this.findOne(term)
+
+        return {
+            ...rest,
+            images: images.map(image => image.url)
+        }
     }
 
     async update(id: string, updateProductDto: UpdateProductDto) {
